@@ -6,54 +6,9 @@
 #define TELEM_WIRE &Wire  // Use default I2C bus for Environment Sensors
 #endif
 
-#ifdef ENV_INCLUDE_BME680
-#ifndef TELEM_BME680_ADDRESS
-#define TELEM_BME680_ADDRESS 0x76
-#endif
-#define TELEM_BME680_SEALEVELPRESSURE_HPA (1013.25)
-#include <Adafruit_BME680.h>
-static Adafruit_BME680 BME680;
-#endif
-
-#ifdef ENV_INCLUDE_BMP085
-#define TELEM_BMP085_SEALEVELPRESSURE_HPA (1013.25)
-#include <Adafruit_BMP085.h>
-static Adafruit_BMP085 BMP085;
-#endif
-
-#if ENV_INCLUDE_AHTX0
-#define TELEM_AHTX_ADDRESS      0x38      // AHT10, AHT20 temperature and humidity sensor I2C address
-#include <Adafruit_AHTX0.h>
-static Adafruit_AHTX0 AHTX0;
-#endif
-
-#if ENV_INCLUDE_BME280
-#ifndef TELEM_BME280_ADDRESS
-#define TELEM_BME280_ADDRESS    0x76      // BME280 environmental sensor I2C address
-#endif
-#define TELEM_BME280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
-#include <Adafruit_BME280.h>
-static Adafruit_BME280 BME280;
-#endif
-
-#if ENV_INCLUDE_BMP280
-#ifndef TELEM_BMP280_ADDRESS
-#define TELEM_BMP280_ADDRESS    0x76      // BMP280 environmental sensor I2C address
-#endif
-#define TELEM_BMP280_SEALEVELPRESSURE_HPA (1013.25)    // Athmospheric pressure at sea level
-#include <Adafruit_BMP280.h>
-static Adafruit_BMP280 BMP280(TELEM_WIRE);
-#endif
-
 #if ENV_INCLUDE_SHTC3
 #include <Adafruit_SHTC3.h>
 static Adafruit_SHTC3 SHTC3;
-#endif
-
-#if ENV_INCLUDE_SHT4X
-#define TELEM_SHT4X_ADDRESS 0x44  //0x44 - 0x46
-#include <SensirionI2cSht4x.h>
-static SensirionI2cSht4x SHT4X;
 #endif
 
 #if ENV_INCLUDE_LPS22HB
@@ -89,18 +44,6 @@ static Adafruit_INA260 INA260;
 static INA226 INA226(TELEM_INA226_ADDRESS, TELEM_WIRE);
 #endif
 
-#if ENV_INCLUDE_MLX90614
-#define TELEM_MLX90614_ADDRESS 0x5A      // MLX90614 IR temperature sensor I2C address
-#include <Adafruit_MLX90614.h>
-static Adafruit_MLX90614 MLX90614;
-#endif
-
-#if ENV_INCLUDE_VL53L0X
-#define TELEM_VL53L0X_ADDRESS 0x29      // VL53L0X time-of-flight distance sensor I2C address
-#include <Adafruit_VL53L0X.h>
-static Adafruit_VL53L0X VL53L0X;
-#endif
-
 #if ENV_INCLUDE_GPS && defined(RAK_BOARD) && !defined(RAK_WISMESH_TAG)
 #define RAK_WISBLOCK_GPS
 #endif
@@ -114,10 +57,10 @@ static bool serialGPSFlag = false;
 static SFE_UBLOX_GNSS ublox_GNSS;
 
 class RAK12500LocationProvider : public LocationProvider {
-  long _lat = 0;
-  long _lng = 0;
-  long _alt = 0;
-  int _sats = 0;
+  long _lat = 41.3990324;
+  long _lng = 2.1430271;
+  long _alt = 30;
+  int _sats = 5;
   long _epoch = 0;
   bool _fix = false;
 public:
@@ -169,54 +112,7 @@ bool EnvironmentSensorManager::begin() {
   MESH_DEBUG_PRINTLN("Second I2C initialized on pins SDA: %d SCL: %d", ENV_PIN_SDA, ENV_PIN_SCL);
   #endif
 
-  #if ENV_INCLUDE_AHTX0
-  if (AHTX0.begin(TELEM_WIRE, 0, TELEM_AHTX_ADDRESS)) {
-    MESH_DEBUG_PRINTLN("Found AHT10/AHT20 at address: %02X", TELEM_AHTX_ADDRESS);
-    AHTX0_initialized = true;
-  } else {
-    AHTX0_initialized = false;
-    MESH_DEBUG_PRINTLN("AHT10/AHT20 was not found at I2C address %02X", TELEM_AHTX_ADDRESS);
-  }
-  #endif
 
-  #if ENV_INCLUDE_BME680
-  if (BME680.begin(TELEM_BME680_ADDRESS, TELEM_WIRE)) {
-    MESH_DEBUG_PRINTLN("Found BME680 at address: %02X", TELEM_BME680_ADDRESS);
-    BME680_initialized = true;
-  } else {
-    BME680_initialized = false;
-    MESH_DEBUG_PRINTLN("BME680 was not found at I2C address %02X", TELEM_BME680_ADDRESS);
-  }
-  #endif
-
-  #if ENV_INCLUDE_BME280
-  if (BME280.begin(TELEM_BME280_ADDRESS, TELEM_WIRE)) {
-    MESH_DEBUG_PRINTLN("Found BME280 at address: %02X", TELEM_BME280_ADDRESS);
-    MESH_DEBUG_PRINTLN("BME sensor ID: %02X", BME280.sensorID());
-    // Reduce self-heating: single-shot conversions, light oversampling, long standby.
-    BME280.setSampling(Adafruit_BME280::MODE_FORCED,
-                       Adafruit_BME280::SAMPLING_X1,   // temperature
-                       Adafruit_BME280::SAMPLING_X1,   // pressure
-                       Adafruit_BME280::SAMPLING_X1,   // humidity
-                       Adafruit_BME280::FILTER_OFF,
-                       Adafruit_BME280::STANDBY_MS_1000);
-    BME280_initialized = true;
-  } else {
-    BME280_initialized = false;
-    MESH_DEBUG_PRINTLN("BME280 was not found at I2C address %02X", TELEM_BME280_ADDRESS);
-  }
-  #endif
-
-  #if ENV_INCLUDE_BMP280
-  if (BMP280.begin(TELEM_BMP280_ADDRESS)) {
-    MESH_DEBUG_PRINTLN("Found BMP280 at address: %02X", TELEM_BMP280_ADDRESS);
-    MESH_DEBUG_PRINTLN("BMP sensor ID: %02X", BMP280.sensorID());
-    BMP280_initialized = true;
-  } else {
-    BMP280_initialized = false;
-    MESH_DEBUG_PRINTLN("BMP280 was not found at I2C address %02X", TELEM_BMP280_ADDRESS);
-  }
-  #endif
 
   #if ENV_INCLUDE_SHTC3
   if (SHTC3.begin(TELEM_WIRE)) {
@@ -229,29 +125,7 @@ bool EnvironmentSensorManager::begin() {
   #endif
 
 
-  #if ENV_INCLUDE_SHT4X
-  SHT4X.begin(*TELEM_WIRE, TELEM_SHT4X_ADDRESS);
-  uint32_t serialNumber = 0;
-  int16_t sht4x_error;
-  sht4x_error = SHT4X.serialNumber(serialNumber);
-  if (sht4x_error == 0) {
-    MESH_DEBUG_PRINTLN("Found SHT4X at address: %02X", TELEM_SHT4X_ADDRESS);
-    SHT4X_initialized = true;
-  } else {
-    SHT4X_initialized = false;
-    MESH_DEBUG_PRINTLN("SHT4X was not found at I2C address %02X", TELEM_SHT4X_ADDRESS);
-  }
-  #endif
 
-  #if ENV_INCLUDE_LPS22HB
-  if (LPS22HB.begin()) {
-    MESH_DEBUG_PRINTLN("Found sensor: LPS22HB");
-    LPS22HB_initialized = true;
-  } else {
-    LPS22HB_initialized = false;
-    MESH_DEBUG_PRINTLN("LPS22HB was not found at I2C address %02X", 0x5C);
-  }
-  #endif
 
   #if ENV_INCLUDE_INA3221
   if (INA3221.begin(TELEM_INA3221_ADDRESS, TELEM_WIRE)) {
