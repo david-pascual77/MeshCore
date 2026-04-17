@@ -1,5 +1,4 @@
 #include "EnvironmentSensorManager.h"
-
 #if ENV_PIN_SDA && ENV_PIN_SCL
 #define TELEM_WIRE &Wire1  // Use Wire1 as the I2C bus for Environment Sensors
 #else
@@ -13,6 +12,16 @@
 static Adafruit_SHTC3 SHTC3;
 #endif
 
+#if ENV_INCLUDE_RAK12035
+// inicializar librerias
+// Wire ya esta incluida
+// si necesitamos seesaw la incluiremos
+#include <RAK12035_SoilMoisture.h>
+RAK12035 sensor;
+// valores de calibracion no confirmados
+uint16_t zero_val = 73;
+uint16_t hundred_val = 250;
+#endif
 
 
 #if ENV_INCLUDE_GPS && defined(RAK_BOARD) && !defined(RAK_WISMESH_TAG)
@@ -83,7 +92,26 @@ bool EnvironmentSensorManager::begin() {
   MESH_DEBUG_PRINTLN("Second I2C initialized on pins SDA: %d SCL: %d", ENV_PIN_SDA, ENV_PIN_SCL);
   #endif
 
-  
+  #if ENV_INCLUDE_RAK12035
+  // inicializar sensor
+	Wire.begin();
+
+	// Initialize sensor
+	sensor.begin();
+  	// Get sensor firmware version
+	uint8_t data = 0;
+	sensor.get_sensor_version(&data);
+	Serial.print("Sensor Firmware version: ");
+	Serial.println(data, HEX);
+	Serial.println();
+
+	// Set the calibration values
+	// Reading the saved calibration values from the sensor.
+	sensor.get_dry_cal(&zero_val);
+	sensor.get_wet_cal(&hundred_val);
+	Serial.printf("Dry calibration value is %d\n", zero_val);
+	Serial.printf("Wet calibration value is %d\n", hundred_val);
+  #endif
 
   #if ENV_INCLUDE_SHTC3
   if (SHTC3.begin(TELEM_WIRE)) {
@@ -109,7 +137,35 @@ bool EnvironmentSensorManager::querySensors(uint8_t requester_permissions, Cayen
 
   if (requester_permissions & TELEM_PERM_ENVIRONMENT) {
 
-  
+    #if ENV_INCLUDE_RAK12035
+    // leer sensor
+    // Read capacitance
+    uint16_t capacitance = 0;
+    sensor.get_sensor_capacitance(&capacitance);
+    Serial.print("Soil Moisture Capacitance: ");
+    Serial.println(capacitance);
+
+    // Read moisture in %
+    // after calibration, we get the Capacitance in air and in water, like zero_val and B. zero_val means 0% and B means 100%.
+    // So the humidity is humidity =  (Capacitance-A) / ((B-A)/100.0)
+    uint8_t moisture = 0;
+    sensor.get_sensor_moisture(&moisture);
+    Serial.print("Soil Moisture humidity(%): ");
+    Serial.println(moisture);
+
+    // Read temperature
+    uint16_t temperature = 0;
+    sensor.get_sensor_temperature(&temperature);
+    Serial.print("Soil Moisture Temperatur: ");
+    Serial.print(temperature / 10);
+    Serial.println(" *C");
+    delay(1000);
+
+    telemetry.addTemperature(TELEM_CHANNEL_SELF, temperature);
+    telemetry.addRelativeHumidity(TELEM_CHANNEL_SELF, moisture);
+
+
+    #endif 
 
     #if ENV_INCLUDE_SHTC3
 /*    if (SHTC3_initialized) {
